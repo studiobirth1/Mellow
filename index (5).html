@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Mellow 〜音色でつながる〜</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <style>
+    :root {
+      --bg-base: #1A1410;
+      --bg-surface: #251D18;
+      --bg-elevated: #332821;
+      --border-subtle: #4A3A30;
+      --border-strong: #6B5547;
+      --text-primary: #FBF4ED;
+      --text-secondary: #C4B5A6;
+      --text-muted: #8A7A6E;
+      --sunset-1: #FF8866;
+      --sunset-2: #F2A65A;
+      --sunset-3: #E8C170;
+      --rose: #E8A0A0;
+      --sage: #A4C49C;
+      --leaf: #7FB069;
+      --honey: #E8A87C;
+      --flame: #FF6B47;
+    }
+    body {
+      background:
+        radial-gradient(ellipse 800px 600px at 20% 0%, rgba(255, 126, 95, 0.10) 0%, transparent 60%),
+        radial-gradient(ellipse 800px 600px at 80% 100%, rgba(127, 176, 105, 0.07) 0%, transparent 60%),
+        var(--bg-base);
+      color: var(--text-primary);
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
+    }
+    .surface { background: var(--bg-surface); border: 1px solid var(--border-subtle); }
+    .elevated { background: var(--bg-elevated); }
+    .text-secondary { color: var(--text-secondary); }
+    .text-muted { color: var(--text-muted); }
+    .brand-title {
+      font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
+      background: linear-gradient(135deg, #FF8866 0%, #F2A65A 50%, #E8C170 100%);
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: 0.05em;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #FF7E5F 0%, #F2A65A 100%);
+      box-shadow: 0 8px 24px -8px rgba(255, 126, 95, 0.6), 0 0 0 1px rgba(255, 200, 150, 0.15) inset;
+      color: #2A1810; font-weight: 800;
+      transition: transform 0.1s ease, box-shadow 0.2s ease;
+    }
+    .btn-primary:active { transform: scale(0.97); }
+    .chip {
+      background: transparent; border: 1.5px solid var(--border-strong);
+      color: var(--text-secondary); padding: 10px 14px; border-radius: 999px;
+      font-size: 13px; font-weight: 600; transition: all 0.15s ease;
+      user-select: none; -webkit-tap-highlight-color: transparent;
+    }
+    .chip:active { transform: scale(0.95); }
+    .chip.active {
+      background: linear-gradient(135deg, #FF7E5F 0%, #F2A65A 100%);
+      border-color: transparent; color: #2A1810;
+      box-shadow: 0 4px 12px -4px rgba(255, 126, 95, 0.5);
+    }
+    .chip-sage.active {
+      background: linear-gradient(135deg, #7FB069 0%, #A4C49C 100%);
+      color: #1F2A18;
+    }
+    .avatar-tile {
+      background: var(--bg-elevated); border: 2px solid transparent;
+      border-radius: 20px; transition: all 0.15s ease;
+      -webkit-tap-highlight-color: transparent; overflow: hidden; position: relative;
+    }
+    .avatar-tile:active { transform: scale(0.95); }
+    .avatar-tile.active {
+      border-color: var(--sunset-2);
+      box-shadow: 0 0 0 4px rgba(242, 166, 90, 0.2), 0 8px 20px -6px rgba(255, 126, 95, 0.4);
+      transform: scale(1.02);
+    }
+    .avatar-tile svg { display: block; width: 100%; height: auto; }
+    .section-title {
+      font-size: 11px; font-weight: 800; letter-spacing: 0.15em;
+      color: var(--honey); text-transform: uppercase; margin-bottom: 10px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .section-title::before, .section-title::after {
+      content: ""; flex: 1; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border-subtle), transparent);
+    }
+    .match-card {
+      background: linear-gradient(135deg, rgba(51, 40, 33, 0.95) 0%, rgba(37, 29, 24, 0.95) 100%);
+      border: 1px solid var(--border-subtle);
+      border-radius: 24px; padding: 16px;
+      animation: cardIn 0.4s ease-out;
+    }
+    @keyframes cardIn { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .compat-ring { border-radius: 50%; padding: 3px; }
+    .compat-ring-inner {
+      background: var(--bg-elevated); border-radius: 50%;
+      width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center; flex-direction: column;
+    }
+    .reaction-btn {
+      background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+      border-radius: 16px; padding: 10px 6px;
+      transition: all 0.15s ease; user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+    }
+    .reaction-btn:active { transform: scale(0.88); background: var(--border-subtle); }
+    .reaction-emoji { font-size: 22px; line-height: 1; }
+    .reaction-label { font-size: 9px; color: var(--text-muted); font-weight: 700; }
+    .reaction-bad .reaction-emoji { filter: grayscale(0.3); }
+    .climax-flash { animation: cflash 0.5s infinite; }
+    @keyframes cflash {
+      0%, 100% { box-shadow: inset 0 0 0 6px rgba(255, 126, 95, 0.6), 0 0 60px rgba(255, 126, 95, 0.4); }
+      50%      { box-shadow: inset 0 0 0 6px rgba(232, 193, 112, 0.8), 0 0 80px rgba(232, 193, 112, 0.5); }
+    }
+    .reaction-pop { animation: rpop 0.4s ease-out forwards; }
+    @keyframes rpop {
+      0%   { transform: scale(0.6); opacity: 0; }
+      40%  { transform: scale(1.1); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    #debugBar { font-family: ui-monospace, monospace; font-size: 10px; color: var(--text-muted); }
+    .acc-good { color: var(--leaf); font-weight: 700; }
+    .acc-mid  { color: var(--sunset-3); font-weight: 700; }
+    .acc-bad  { color: var(--flame); font-weight: 700; }
+    input[type="text"], select {
+      background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+      color: var(--text-primary); padding: 14px 16px; border-radius: 16px;
+      font-size: 16px; width: 100%; outline: none;
+      transition: border-color 0.15s ease;
+    }
+    input[type="text"]:focus { border-color: var(--sunset-2); }
+    .glow-pulse { animation: glowPulse 3s ease-in-out infinite; }
+    @keyframes glowPulse {
+      0%, 100% { text-shadow: 0 0 20px rgba(255, 126, 95, 0.3); }
+      50%      { text-shadow: 0 0 30px rgba(255, 126, 95, 0.6); }
+    }
+  </style>
+</head>
+<body onclick="initAudio()" class="overflow-x-hidden">
+
+  <header class="text-center pt-8 pb-4">
+    <h1 class="brand-title text-5xl font-black glow-pulse">Mellow</h1>
+    <div class="text-xs tracking-[0.3em] text-muted mt-2">音色でつながる</div>
+    <div class="flex items-center justify-center gap-2 mt-3 text-xs text-secondary">
+      <span>🍃</span><span>·</span><span>🎵</span><span>·</span><span>🌅</span>
+    </div>
+  </header>
+
+  <main id="app" class="max-w-md mx-auto px-5" style="padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));">
+
+    <div id="preRegSection">
+      <!-- 事前注意事項 -->
+      <div class="rounded-2xl p-4 mb-6" style="background: rgba(242, 166, 90, 0.08); border: 1px solid rgba(242, 166, 90, 0.28);">
+        <div class="flex items-center gap-2 mb-2.5">
+          <span style="font-size: 16px;">⚠️</span>
+          <div class="text-sm font-bold" style="color: var(--sunset-2);">ご利用前にご確認ください</div>
+        </div>
+        <ul class="space-y-1.5 text-xs leading-relaxed" style="color: var(--text-secondary);">
+          <li>📍 ブラウザの<b>位置情報の使用</b>を「許可」に設定してください</li>
+          <li>📶 <b>安定した通信環境</b>(Wi-Fi または 4G/5G)でのご利用を推奨します</li>
+          <li>🔋 <b>低電力モードはOFF</b>にしてください(ONだとGPS精度が低下します)</li>
+          <li>🔄 ブラウザを最新版にし、必要に応じて<b>キャッシュをクリア</b>してください</li>
+        </ul>
+      </div>
+
+    <form id="regForm" class="space-y-7" onsubmit="event.preventDefault(); register();">
+      <section>
+        <div class="section-title">Your Name</div>
+        <input id="userName" type="text" placeholder="ニックネーム" maxlength="20" autocomplete="off">
+      </section>
+
+      <section>
+        <div class="section-title">Choose Avatar</div>
+        <div id="avatarGrid" class="grid grid-cols-3 gap-3"></div>
+      </section>
+
+      <section>
+        <div class="section-title">Generation</div>
+        <div id="generationGrid" class="flex flex-wrap gap-2"></div>
+      </section>
+
+      <section>
+        <div class="section-title">🎵 Favorite Genres</div>
+        <div class="text-[10px] text-muted mb-2">複数選択OK・最低1つ</div>
+        <div id="genreGrid" class="flex flex-wrap gap-2"></div>
+      </section>
+
+      <section>
+        <div class="section-title">🎸 Instruments</div>
+        <div class="text-[10px] text-muted mb-2">演奏する楽器(複数選択OK)</div>
+        <div id="instrumentGrid" class="flex flex-wrap gap-2"></div>
+      </section>
+
+      <section>
+        <div class="section-title">🎤 Karaoke</div>
+        <div id="karaokeGrid" class="flex flex-wrap gap-2"></div>
+      </section>
+
+      <section>
+        <div class="section-title">🌅 Music Vibe</div>
+        <div class="text-[10px] text-muted mb-2">音楽の楽しみ方(複数選択OK)</div>
+        <div id="vibeGrid" class="flex flex-wrap gap-2"></div>
+      </section>
+
+      <button type="submit" class="btn-primary w-full p-5 rounded-2xl text-lg">
+        ✦ はじめる ✦
+      </button>
+    </form>
+    </div>
+
+    <div id="matchDisplay" class="hidden space-y-4">
+      <div class="flex justify-between items-center">
+        <div id="statusTag" class="surface px-4 py-2 rounded-full text-[10px] font-bold tracking-wider text-secondary">
+          ◉ SCANNING
+        </div>
+        <button id="sleepBtn" onclick="toggleSleep()" class="surface px-4 py-2 rounded-full text-xs font-bold">🌙 休む</button>
+      </div>
+
+      <div id="debugBar" class="surface rounded-xl px-3 py-2 flex justify-between">
+        <span>📡 GPS: <span id="dbgAcc" class="acc-bad">--</span>m</span>
+        <span>↻ <span id="dbgAge">--</span>s前</span>
+        <span>👥 <span id="dbgCount">0</span>人</span>
+      </div>
+
+      <div id="matchList" class="space-y-3"></div>
+    </div>
+  </main>
+
+  <div id="reactionLayer" class="fixed inset-0 pointer-events-none z-[10000] flex flex-col items-center justify-center"></div>
+
+  <!-- 広告バナー枠 (固定フッター・AdSense等の挿入用) -->
+  <div id="adBanner" class="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-center"
+       style="background: rgba(26, 20, 16, 0.92); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-top: 1px solid var(--border-subtle); height: calc(56px + env(safe-area-inset-bottom, 0px)); padding-bottom: env(safe-area-inset-bottom, 0px);">
+    <!-- ↓ ここにGoogle AdSense等の広告タグを配置してください -->
+    <div id="adSlot" class="text-[10px] tracking-wider" style="color: var(--text-muted);">広告枠 (Advertisement)</div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCIOCF4zhqgmxxv6wFAdJl_raVVDGcbDtg",
+      authDomain: "musicmatch-project.firebaseapp.com",
+      projectId: "musicmatch-project",
+      databaseURL: "https://musicmatch-project-default-rtdb.firebaseio.com"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const MIN_ACCURACY_M     = 30;
+    const HEARTBEAT_MS       = 5000;
+    const STALE_THRESHOLD_MS = 30000;
+    const MATCH_DISTANCE_KM  = 0.030;
+    const FLASH_DISTANCE_KM  = 0.015;
+
+    // ============ アバター(オリジナル6種SVG) ============
+    function avatarFlower() {
+      return `<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="40" cy="58" rx="24" ry="18" fill="#6B4423"/>
+        <circle cx="40" cy="42" r="17" fill="#F4D2B0"/>
+        <path d="M22 38 Q22 22 40 21 Q58 22 58 38 Q56 32 50 30 Q46 34 40 34 Q34 34 30 30 Q24 32 22 38 Z" fill="#6B4423"/>
+        <path d="M22 38 Q19 50 21 60 L26 60 Q24 50 26 40 Z" fill="#6B4423"/>
+        <path d="M58 38 Q61 50 59 60 L54 60 Q56 50 54 40 Z" fill="#6B4423"/>
+        <g transform="translate(28 26)">
+          <circle cx="0" cy="-2.5" r="2" fill="#FF8FA3"/>
+          <circle cx="2.5" cy="-1" r="2" fill="#FF8FA3"/>
+          <circle cx="2" cy="2" r="2" fill="#FF8FA3"/>
+          <circle cx="-2" cy="2" r="2" fill="#FF8FA3"/>
+          <circle cx="-2.5" cy="-1" r="2" fill="#FF8FA3"/>
+          <circle cx="0" cy="0" r="1.2" fill="#FFE5B4"/>
+        </g>
+        <path d="M32 42 Q34 40 36 42" stroke="#2A1F1A" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <path d="M44 42 Q46 40 48 42" stroke="#2A1F1A" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <circle cx="31" cy="48" r="2" fill="#FFB5A0" opacity="0.5"/>
+        <circle cx="49" cy="48" r="2" fill="#FFB5A0" opacity="0.5"/>
+        <path d="M36 50 Q40 53 44 50" stroke="#2A1F1A" stroke-width="2" fill="none" stroke-linecap="round"/>
+      </svg>`;
+    }
+    function avatarBeanie() {
+      return `<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="40" cy="44" r="17" fill="#D8AE85"/>
+        <path d="M23 38 Q26 36 30 37 L30 34 L50 34 L50 37 Q54 36 57 38 Q57 32 40 28 Q23 32 23 38 Z" fill="#2A1F1A"/>
+        <path d="M20 32 Q20 14 40 14 Q60 14 60 32 L60 36 L20 36 Z" fill="#7A6B5C"/>
+        <rect x="20" y="32" width="40" height="5" fill="#5C4F42"/>
+        <circle cx="40" cy="14" r="4" fill="#A89384"/>
+        <ellipse cx="33" cy="44" rx="1.8" ry="2.2" fill="#2A1F1A"/>
+        <ellipse cx="47" cy="44" rx="1.8" ry="2.2" fill="#2A1F1A"/>
+        <circle cx="33.5" cy="43.5" r="0.6" fill="#FFF"/>
+        <circle cx="47.5" cy="43.5" r="0.6" fill="#FFF"/>
+        <path d="M35 51 Q40 54 45 51" stroke="#2A1F1A" stroke-width="2" fill="none" stroke-linecap="round"/>
+      </svg>`;
+    }
+    function avatarCurly() {
+      return `<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+        <g fill="#C8632B">
+          <circle cx="22" cy="36" r="6"/>
+          <circle cx="28" cy="28" r="7"/>
+          <circle cx="38" cy="22" r="8"/>
+          <circle cx="48" cy="24" r="7"/>
+          <circle cx="56" cy="32" r="7"/>
+          <circle cx="58" cy="42" r="6"/>
+          <circle cx="22" cy="46" r="5"/>
+        </g>
+        <circle cx="40" cy="44" r="16" fill="#EFC09F"/>
+        <g fill="#C8632B">
+          <circle cx="24" cy="36" r="4.5"/>
+          <circle cx="56" cy="36" r="4.5"/>
+        </g>
+        <circle cx="32" cy="50" r="1.5" fill="#B8520F" opacity="0.7"/>
+        <circle cx="48" cy="50" r="1.5" fill="#B8520F" opacity="0.7"/>
+        <circle cx="35" cy="46" r="0.8" fill="#B8520F" opacity="0.6"/>
+        <circle cx="45" cy="46" r="0.8" fill="#B8520F" opacity="0.6"/>
+        <ellipse cx="33" cy="43" rx="1.8" ry="2.2" fill="#2A1F1A"/>
+        <ellipse cx="47" cy="43" rx="1.8" ry="2.2" fill="#2A1F1A"/>
+        <path d="M34 51 Q40 56 46 51" stroke="#2A1F1A" stroke-width="2" fill="none" stroke-linecap="round"/>
+      </svg>`;
+    }
+    function avatarGlasses() {
+      return `<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="40" cy="42" r="17" fill="#D8AE85"/>
+        <path d="M23 36 Q23 22 40 20 Q57 22 57 36 Q56 30 52 28 Q48 32 40 31 Q34 30 32 27 Q26 30 23 36 Z" fill="#3D2918"/>
+        <path d="M27 30 L34 26 L36 24" stroke="#3D2918" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <circle cx="32" cy="44" r="6" fill="none" stroke="#2A1F1A" stroke-width="1.8"/>
+        <circle cx="48" cy="44" r="6" fill="none" stroke="#2A1F1A" stroke-width="1.8"/>
+        <line x1="38" y1="44" x2="42" y2="44" stroke="#2A1F1A" stroke-width="1.8"/>
+        <circle cx="32" cy="44" r="4" fill="#FBF4ED" opacity="0.15"/>
+        <circle cx="48" cy="44" r="4" fill="#FBF4ED" opacity="0.15"/>
+        <circle cx="32" cy="44" r="1.5" fill="#2A1F1A"/>
+        <circle cx="48" cy="44" r="1.5" fill="#2A1F1A"/>
+        <path d="M36 53 Q40 55 44 53" stroke="#2A1F1A" stroke-width="2" fill="none" stroke-linecap="round"/>
+      </svg>`;
+    }
+    function avatarBun() {
+      // 三日月の髪飾り。他のアバターと同じ構造に揃えて確実にレンダリング
+      return `<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="40" cy="58" rx="24" ry="18" fill="#3D2A4A"/>
+        <circle cx="40" cy="42" r="17" fill="#F4D2B0"/>
+        <path d="M22 38 Q22 20 40 19 Q58 20 58 38 Q56 30 50 28 Q46 32 40 32 Q34 32 30 28 Q24 30 22 38 Z" fill="#3D2A4A"/>
+        <path d="M22 38 Q19 50 21 60 L26 60 Q24 50 26 40 Z" fill="#3D2A4A"/>
+        <path d="M58 38 Q61 50 59 60 L54 60 Q56 50 54 40 Z" fill="#3D2A4A"/>
+        <circle cx="56" cy="25" r="6" fill="#F2D55E"/>
+        <circle cx="59" cy="23.5" r="5" fill="#3D2A4A"/>
+        <circle cx="22" cy="30" r="0.8" fill="#F2D55E"/>
+        <circle cx="32" cy="22" r="0.6" fill="#FDE3CC"/>
+        <path d="M30 42 Q33 40 36 42" stroke="#2A1F1A" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <path d="M44 42 Q47 40 50 42" stroke="#2A1F1A" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <circle cx="31" cy="49" r="2" fill="#FFB5A0" opacity="0.5"/>
+        <circle cx="49" cy="49" r="2" fill="#FFB5A0" opacity="0.5"/>
+        <path d="M36 51 Q40 54 44 51" stroke="#2A1F1A" stroke-width="2" fill="none" stroke-linecap="round"/>
+      </svg>`;
+    }
+    function avatarHeadphones() {
+      return `<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="40" cy="56" rx="22" ry="14" fill="#5C3D2A"/>
+        <circle cx="40" cy="42" r="17" fill="#E8B891"/>
+        <path d="M23 36 Q23 18 40 18 Q57 18 57 36 Q55 28 50 26 Q47 32 40 32 Q33 32 30 26 Q25 28 23 36 Z" fill="#5C3D2A"/>
+        <path d="M22 36 Q20 42 22 50 L26 50 Q24 42 26 38 Z" fill="#5C3D2A"/>
+        <path d="M58 36 Q60 42 58 50 L54 50 Q56 42 54 38 Z" fill="#5C3D2A"/>
+        <path d="M18 38 Q18 22 40 22 Q62 22 62 38" stroke="#2A1F1A" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <ellipse cx="18" cy="42" rx="6" ry="8" fill="#2A1F1A"/>
+        <ellipse cx="62" cy="42" rx="6" ry="8" fill="#2A1F1A"/>
+        <ellipse cx="18" cy="42" rx="3.5" ry="5.5" fill="#FF8866"/>
+        <ellipse cx="62" cy="42" rx="3.5" ry="5.5" fill="#FF8866"/>
+        <ellipse cx="33" cy="44" rx="1.8" ry="2.2" fill="#2A1F1A"/>
+        <ellipse cx="47" cy="44" rx="1.8" ry="2.2" fill="#2A1F1A"/>
+        <path d="M35 51 Q40 54 45 51" stroke="#2A1F1A" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <text x="64" y="22" font-size="8" fill="#F2A65A">♪</text>
+        <text x="10" y="28" font-size="6" fill="#F2A65A">♫</text>
+      </svg>`;
+    }
+
+    const AVATARS = {
+      hana:  { name: '花',   svg: avatarFlower()    },
+      sora:  { name: '空',   svg: avatarBeanie()    },
+      hi:    { name: '陽',   svg: avatarCurly()     },
+      mori:  { name: '森',   svg: avatarGlasses()   },
+      tsuki: { name: '月',   svg: avatarBun()       },
+      umi:   { name: '海',   svg: avatarHeadphones()}
+    };
+
+    // ============ プロフィール質問 ============
+    const QUESTIONS = {
+      generation: {
+        type: 'single', sage: false,
+        options: [
+          { id: '20a', label: '20代前半' },
+          { id: '20b', label: '20代後半' },
+          { id: '30a', label: '30代前半' },
+          { id: '30b', label: '30代後半' },
+          { id: '40',  label: '40代' },
+          { id: '50',  label: '50代+' }
+        ]
+      },
+      genres: {
+        type: 'multi', sage: false,
+        options: [
+          { id: 'rock',    label: 'Rock',         emoji: '🎸' },
+          { id: 'pop',     label: 'Pop',          emoji: '🎤' },
+          { id: 'jazz',    label: 'Jazz',         emoji: '🎷' },
+          { id: 'edm',     label: 'EDM',          emoji: '🎧' },
+          { id: 'classic', label: 'Classic',      emoji: '🎻' },
+          { id: 'hiphop',  label: 'Hip-Hop',      emoji: '🎙️' },
+          { id: 'rnb',     label: 'R&B/Soul',     emoji: '💿' },
+          { id: 'folk',    label: 'Folk',         emoji: '🪕' },
+          { id: 'jpop',    label: 'J-Pop/アニソン', emoji: '🌸' },
+          { id: 'kpop',    label: 'K-Pop',        emoji: '💜' },
+          { id: 'indie',   label: 'インディー',   emoji: '🔥' },
+          { id: 'reggae',  label: 'Reggae',       emoji: '🌴' }
+        ]
+      },
+      instruments: {
+        type: 'multi', sage: true,
+        options: [
+          { id: 'guitar',  label: 'ギター',     emoji: '🎸' },
+          { id: 'piano',   label: 'ピアノ',     emoji: '🎹' },
+          { id: 'bass',    label: 'ベース',     emoji: '🎻' },
+          { id: 'drums',   label: 'ドラム',     emoji: '🥁' },
+          { id: 'vocal',   label: 'ボーカル',   emoji: '🎤' },
+          { id: 'wind',    label: '管楽器',     emoji: '🎺' },
+          { id: 'ukulele', label: 'ウクレレ',   emoji: '🪕' },
+          { id: 'dj',      label: 'DJ',         emoji: '🎚️' },
+          { id: 'listen',  label: '聴く専門',   emoji: '👂' }
+        ]
+      },
+      karaoke: {
+        type: 'single', sage: false,
+        options: [
+          { id: 'heavy',  label: 'ヘビー(週1+)', emoji: '🔥' },
+          { id: 'medium', label: 'たまに',       emoji: '🎤' },
+          { id: 'rare',   label: '数ヶ月に1',    emoji: '🌙' },
+          { id: 'never',  label: 'あまり',       emoji: '🤐' }
+        ]
+      },
+      vibe: {
+        type: 'multi', sage: true,
+        options: [
+          { id: 'fes',    label: 'フェス',         emoji: '🎪' },
+          { id: 'live',   label: 'ライブハウス',   emoji: '🎭' },
+          { id: 'home',   label: 'お家でじっくり', emoji: '🏠' },
+          { id: 'study',  label: '作業のお供',     emoji: '📚' },
+          { id: 'drive',  label: 'ドライブ',       emoji: '🚗' },
+          { id: 'date',   label: '誰かと一緒',     emoji: '💑' }
+        ]
+      }
+    };
+
+    // ============ リアクション(6種、👎含む) ============
+    const REACTIONS = [
+      { emoji: '❤️', label: 'いいね',     sound: 'love'  },
+      { emoji: '🎵', label: '一緒に',     sound: 'music' },
+      { emoji: '🔥', label: 'アツい',     sound: 'fire'  },
+      { emoji: '🌹', label: '一目惚れ',   sound: 'rose'  },
+      { emoji: '😂', label: 'ウケる',     sound: 'laugh' },
+      { emoji: '👎', label: 'う〜ん',     sound: 'bad', bad: true }
+    ];
+
+    // ============ State ============
+    let myId = '';
+    let myInfo = { name: '', avatar: 'hana', active: true };
+    let myProfile = { generation: null, genres: [], instruments: [], karaoke: null, vibe: [] };
+    let audioCtx = null;
+    let isExtremeNear = false;
+    let watchId = null;
+    let wakeLock = null;
+    let lastUpdateTime = 0;
+
+    // ============ Audio ============
+    function initAudio() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+    function playTone(freq, dur, type, vol) {
+      type = type || 'sine'; vol = vol || 0.1; dur = dur || 0.2;
+      initAudio();
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.connect(g); g.connect(audioCtx.destination);
+      o.type = type;
+      o.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      g.gain.setValueAtTime(vol, audioCtx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + dur);
+      o.start(); o.stop(audioCtx.currentTime + dur);
+    }
+    function playMatchSound() { playTone(880, 0.2, 'square', 0.1); setTimeout(() => playTone(1100, 0.15, 'square', 0.08), 150); }
+    function playReactionSound(name) {
+      const s = {
+        love:  () => { playTone(800, 0.15); setTimeout(() => playTone(1200, 0.2), 100); },
+        music: () => { playTone(523, 0.1); setTimeout(() => playTone(659, 0.1), 80); setTimeout(() => playTone(784, 0.15), 160); },
+        fire:  () => { playTone(1500, 0.1, 'sawtooth', 0.06); setTimeout(() => playTone(1800, 0.1, 'sawtooth', 0.06), 80); },
+        rose:  () => { playTone(659, 0.2, 'sine'); setTimeout(() => playTone(880, 0.25, 'sine'), 150); },
+        laugh: () => { playTone(700, 0.08); setTimeout(() => playTone(900, 0.08), 70); setTimeout(() => playTone(700, 0.08), 140); },
+        bad:   () => { playTone(220, 0.2, 'triangle', 0.08); setTimeout(() => playTone(180, 0.3, 'triangle', 0.06), 150); }
+      };
+      (s[name] || s.love)();
+    }
+
+    // ============ Wake Lock ============
+    async function requestWakeLock() {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLock = await navigator.wakeLock.request('screen');
+          wakeLock.addEventListener('release', () => { wakeLock = null; });
+        }
+      } catch (e) {}
+    }
+    function releaseWakeLock() {
+      if (wakeLock) { wakeLock.release().catch(()=>{}); wakeLock = null; }
+    }
+
+    // ============ Geolocation ============
+    function startLocationTracking() {
+      if (watchId !== null) return;
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          const acc = pos.coords.accuracy;
+          updateDebugBar(acc);
+          if (acc > MIN_ACCURACY_M) return;
+          lastUpdateTime = Date.now();
+          if (!myId) return;
+          db.ref('users/' + myId).update({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            accuracy: acc,
+            lastSeen: Date.now()
+          });
+        },
+        (err) => console.warn('[GPS]', err.code, err.message),
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
+      );
+    }
+    function stopLocationTracking() {
+      if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+    }
+    function startHeartbeat() {
+      setInterval(() => {
+        if (!myId || !myInfo.active) return;
+        db.ref('users/' + myId).update({ lastSeen: Date.now() });
+      }, HEARTBEAT_MS);
+    }
+    document.addEventListener('visibilitychange', async () => {
+      if (document.visibilityState === 'visible') {
+        await requestWakeLock();
+        if (myId && myInfo.active) {
+          navigator.geolocation.getCurrentPosition((pos) => {
+            if (pos.coords.accuracy <= MIN_ACCURACY_M) {
+              db.ref('users/' + myId).update({
+                lat: pos.coords.latitude, lng: pos.coords.longitude,
+                accuracy: pos.coords.accuracy, lastSeen: Date.now()
+              });
+            }
+          }, null, { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
+        }
+      }
+    });
+
+    // ============ フォーム描画 ============
+    function buildAvatarGrid() {
+      const grid = document.getElementById('avatarGrid');
+      grid.innerHTML = Object.entries(AVATARS).map(([id, av]) => `
+        <button type="button" class="avatar-tile p-2 ${id === myInfo.avatar ? 'active' : ''}" data-avatar="${id}" onclick="selectAvatar('${id}')">
+          ${av.svg}
+          <div class="text-xs font-bold text-secondary text-center mt-1">${av.name}</div>
+        </button>
+      `).join('');
+    }
+    function selectAvatar(id) {
+      myInfo.avatar = id;
+      document.querySelectorAll('.avatar-tile').forEach(t => {
+        t.classList.toggle('active', t.dataset.avatar === id);
+      });
+    }
+    function buildChipGrid(containerId, key) {
+      const q = QUESTIONS[key];
+      const container = document.getElementById(containerId);
+      const sageCls = q.sage ? 'chip-sage' : '';
+      container.innerHTML = q.options.map(opt => `
+        <button type="button" class="chip ${sageCls}" data-key="${key}" data-id="${opt.id}" onclick="toggleChip('${key}', '${opt.id}', this)">
+          ${opt.emoji ? opt.emoji + ' ' : ''}${opt.label}
+        </button>
+      `).join('');
+    }
+    function toggleChip(key, id, el) {
+      const q = QUESTIONS[key];
+      if (q.type === 'single') {
+        myProfile[key] = (myProfile[key] === id) ? null : id;
+        document.querySelectorAll('[data-key="' + key + '"]').forEach(b => {
+          b.classList.toggle('active', b.dataset.id === myProfile[key]);
+        });
+      } else {
+        const arr = myProfile[key] || [];
+        const idx = arr.indexOf(id);
+        if (idx >= 0) arr.splice(idx, 1); else arr.push(id);
+        myProfile[key] = arr;
+        el.classList.toggle('active', arr.includes(id));
+      }
+    }
+    buildAvatarGrid();
+    buildChipGrid('generationGrid', 'generation');
+    buildChipGrid('genreGrid', 'genres');
+    buildChipGrid('instrumentGrid', 'instruments');
+    buildChipGrid('karaokeGrid', 'karaoke');
+    buildChipGrid('vibeGrid', 'vibe');
+
+    // ============ Sleep ============
+    function toggleSleep() {
+      myInfo.active = !myInfo.active;
+      document.getElementById('sleepBtn').innerText = myInfo.active ? "🌙 休む" : "✦ 復帰";
+      db.ref('users/' + myId).update({ active: myInfo.active });
+      if (myInfo.active) { startLocationTracking(); requestWakeLock(); }
+      else { stopLocationTracking(); releaseWakeLock(); }
+    }
+
+    // ============ 登録 ============
+    function register() {
+      initAudio();
+      const name = document.getElementById('userName').value.trim();
+      if (!name) return alert("名前を入力してね");
+      if (!myProfile.generation) return alert("世代を選んでね");
+      if (!myProfile.genres || myProfile.genres.length === 0) return alert("好きなジャンルを1つ以上選んでね");
+
+      navigator.geolocation.getCurrentPosition((pos) => {
+        if (pos.coords.accuracy > 100) {
+          if (!confirm("GPS精度が悪いです(" + Math.round(pos.coords.accuracy) + "m)。屋外推奨です。続けますか?")) return;
+        }
+        myId = 'user_' + Math.random().toString(36).substr(2, 9);
+        myInfo.name = name;
+
+        const userRef = db.ref('users/' + myId);
+        userRef.set({
+          name: myInfo.name,
+          avatar: myInfo.avatar,
+          active: true,
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+          lastSeen: Date.now(),
+          profile: myProfile
+        });
+        userRef.onDisconnect().remove();
+
+        document.getElementById('preRegSection').classList.add('hidden');
+        document.getElementById('matchDisplay').classList.remove('hidden');
+
+        startLocationTracking();
+        startHeartbeat();
+        requestWakeLock();
+        startListeners();
+      }, () => alert("位置情報を許可してね"), {
+        enableHighAccuracy: true, maximumAge: 0, timeout: 15000
+      });
+    }
+
+    function startListeners() {
+      db.ref('users').on('value', snapshot => renderMatches(snapshot.val()));
+      db.ref('reactions/' + myId).on('child_added', snapshot => {
+        const data = snapshot.val();
+        if (data) { showReaction(data.from, data.emoji, data.sound); snapshot.ref.remove(); }
+      });
+    }
+
+    // ============ 相性スコア ============
+    function computeCompat(meProfile, otherProfile) {
+      if (!meProfile || !otherProfile) return { percent: 0, shared: [] };
+      let score = 0, max = 0;
+      const shared = [];
+
+      max += 40;
+      if (meProfile.genres && otherProfile.genres) {
+        const sh = meProfile.genres.filter(g => otherProfile.genres.includes(g));
+        score += Math.min(40, sh.length * 15);
+        sh.forEach(g => {
+          const opt = QUESTIONS.genres.options.find(o => o.id === g);
+          if (opt) shared.push({ emoji: opt.emoji, label: opt.label });
+        });
+      }
+      max += 20;
+      if (meProfile.generation && otherProfile.generation) {
+        const order = ['20a','20b','30a','30b','40','50'];
+        const di = Math.abs(order.indexOf(meProfile.generation) - order.indexOf(otherProfile.generation));
+        if (di === 0) score += 20;
+        else if (di === 1) score += 12;
+        else if (di === 2) score += 5;
+      }
+      max += 20;
+      if (meProfile.instruments && otherProfile.instruments) {
+        const sh = meProfile.instruments.filter(i => otherProfile.instruments.includes(i) && i !== 'listen');
+        score += Math.min(20, sh.length * 10);
+        sh.slice(0, 2).forEach(i => {
+          const opt = QUESTIONS.instruments.options.find(o => o.id === i);
+          if (opt) shared.push({ emoji: opt.emoji, label: opt.label });
+        });
+      }
+      max += 10;
+      if (meProfile.karaoke && otherProfile.karaoke) {
+        if (meProfile.karaoke === otherProfile.karaoke) score += 10;
+        else if (
+          (meProfile.karaoke === 'heavy' && otherProfile.karaoke === 'medium') ||
+          (meProfile.karaoke === 'medium' && otherProfile.karaoke === 'heavy') ||
+          (meProfile.karaoke === 'medium' && otherProfile.karaoke === 'rare') ||
+          (meProfile.karaoke === 'rare' && otherProfile.karaoke === 'medium')
+        ) score += 5;
+      }
+      max += 10;
+      if (meProfile.vibe && otherProfile.vibe) {
+        const sh = meProfile.vibe.filter(v => otherProfile.vibe.includes(v));
+        score += Math.min(10, sh.length * 4);
+      }
+      const percent = Math.round((score / max) * 100);
+      return { percent, shared: shared.slice(0, 4) };
+    }
+    function compatColor(p) {
+      if (p >= 70) return 'var(--sunset-2)';
+      if (p >= 40) return 'var(--honey)';
+      return 'var(--text-muted)';
+    }
+
+    // ============ UI updates ============
+    function updateDebugBar(acc) {
+      const el = document.getElementById('dbgAcc');
+      if (!el) return;
+      el.textContent = acc.toFixed(1);
+      el.className = acc <= 15 ? 'acc-good' : acc <= 30 ? 'acc-mid' : 'acc-bad';
+    }
+    setInterval(() => {
+      const ageEl = document.getElementById('dbgAge');
+      if (ageEl && lastUpdateTime) ageEl.textContent = Math.floor((Date.now() - lastUpdateTime) / 1000);
+    }, 500);
+
+    function showReaction(from, emoji, sound) {
+      playReactionSound(sound || 'love');
+      const r = document.createElement('div');
+      r.className = "elevated p-6 rounded-3xl reaction-pop text-center shadow-2xl mb-4 backdrop-blur-md";
+      r.style.cssText = 'background: rgba(51, 40, 33, 0.95); border: 1px solid rgba(242, 166, 90, 0.3);';
+      r.innerHTML = '<div class="text-7xl mb-2">' + emoji + '</div><div class="text-sm font-black" style="color: var(--sunset-2)">' + from + 'さんから!</div>';
+      document.getElementById('reactionLayer').appendChild(r);
+      setTimeout(() => r.remove(), 2500);
+    }
+
+    // ============ マッチ描画 ============
+    function renderMatches(allUsers) {
+      if (!allUsers || !allUsers[myId] || !myInfo.active) return;
+      const list = document.getElementById('matchList');
+      const statusTag = document.getElementById('statusTag');
+      const myPos = allUsers[myId];
+      const now = Date.now();
+      let closestDist = 999;
+      const candidates = [];
+
+      for (let id in allUsers) {
+        if (id === myId) continue;
+        const user = allUsers[id];
+        if (!user || !user.active || !user.lat || !user.lng) continue;
+        if ((now - user.lastSeen) > STALE_THRESHOLD_MS) continue;
+
+        const dist = getDistance(myPos.lat, myPos.lng, user.lat, user.lng);
+        if (dist > MATCH_DISTANCE_KM) continue;
+
+        const compat = computeCompat(myProfile, user.profile);
+        candidates.push({ id, user, dist, compat });
+        if (dist < closestDist) closestDist = dist;
+      }
+      candidates.sort((a, b) => b.compat.percent - a.compat.percent || a.dist - b.dist);
+
+      let html = '';
+      for (const c of candidates) {
+        const distM = Math.round(c.dist * 1000);
+        const errBudget = Math.round(((myPos.accuracy || 0) + (c.user.accuracy || 0)));
+        const av = AVATARS[c.user.avatar] || AVATARS.hana;
+        const sharedHtml = c.compat.shared.length
+          ? c.compat.shared.map(s => '<span class="elevated px-2 py-0.5 rounded-full text-[10px] font-bold">' + s.emoji + ' ' + s.label + '</span>').join(' ')
+          : '<span class="text-muted text-[10px]">共通点を探し中...</span>';
+        const col = compatColor(c.compat.percent);
+        const ringBg = 'conic-gradient(' + col + ' calc(' + c.compat.percent + ' * 1%), rgba(255,255,255,0.08) 0)';
+
+        html += '<div class="match-card">'
+          + '<div class="flex items-center gap-3 mb-3">'
+            + '<div class="w-16 h-16 rounded-full overflow-hidden flex-shrink-0" style="background: var(--bg-elevated)">' + av.svg + '</div>'
+            + '<div class="flex-1 min-w-0">'
+              + '<div class="font-black text-lg truncate">' + c.user.name + '</div>'
+              + '<div class="text-xs text-muted">' + distM + 'm先 <span class="opacity-60">±' + errBudget + 'm</span></div>'
+            + '</div>'
+            + '<div class="compat-ring w-14 h-14 flex-shrink-0" style="background: ' + ringBg + '">'
+              + '<div class="compat-ring-inner">'
+                + '<div class="text-base font-black" style="color: ' + col + '">' + c.compat.percent + '</div>'
+                + '<div class="text-[8px] text-muted -mt-0.5">MATCH</div>'
+              + '</div>'
+            + '</div>'
+          + '</div>'
+          + '<div class="flex flex-wrap gap-1 mb-3">' + sharedHtml + '</div>'
+          + '<div class="grid grid-cols-6 gap-1.5">'
+          + REACTIONS.map(r => '<button onclick="sendReaction(\'' + c.id + '\', \'' + r.emoji + '\', \'' + r.sound + '\')" class="reaction-btn ' + (r.bad ? 'reaction-bad' : '') + '"><span class="reaction-emoji">' + r.emoji + '</span><span class="reaction-label">' + r.label + '</span></button>').join('')
+          + '</div>'
+        + '</div>';
+      }
+
+      list.innerHTML = html || '<div class="text-center text-muted py-12 text-sm">🌿 周囲に音楽仲間はまだいません<br><span class="text-[11px]">少し歩くと見つかるかも</span></div>';
+      document.getElementById('dbgCount').textContent = candidates.length;
+
+      if (closestDist <= FLASH_DISTANCE_KM) {
+        document.body.classList.add('climax-flash');
+        statusTag.innerHTML = "✦ MATCHING ✦";
+        statusTag.style.color = 'var(--sunset-2)';
+        if (!isExtremeNear) { playMatchSound(); isExtremeNear = true; }
+      } else {
+        document.body.classList.remove('climax-flash');
+        statusTag.innerHTML = "◉ SCANNING";
+        statusTag.style.color = '';
+        isExtremeNear = false;
+      }
+    }
+
+    function sendReaction(targetId, emoji, sound) {
+      playReactionSound(sound);
+      db.ref('reactions/' + targetId).push({ from: myInfo.name, emoji: emoji, sound: sound });
+    }
+
+    function getDistance(lat1, lng1, lat2, lng2) {
+      const R = 6371;
+      const dLat = (lat2-lat1) * Math.PI / 180;
+      const dLng = (lng2-lng1) * Math.PI / 180;
+      const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+  </script>
+</body>
+</html>
